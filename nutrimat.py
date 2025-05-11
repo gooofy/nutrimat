@@ -74,10 +74,12 @@ COMMAND_ALIASES = {
     "da": "delete activity", # Alias for delete activity
     "ea": "edit activity", # Alias for edit activity
     "l": "log", # Alias for log
+    "lfd": "log food", # Alias for log food
+    "lml": "log meal", # Alias for log meal
+    "lac": "log activity", # Alias for log activity
     "vd": "view day", # Alias for view day
     "rl": "remove log", # Alias for remove log
     "s": "summary", # Alias for summary
-    # Add aliases for other commands as we implement them
 }
 
 def handle_help():
@@ -86,33 +88,31 @@ def handle_help():
     console.print("  [green]help[/green] ([cyan]h[/cyan]) - Show this help message")
     console.print("  [green]exit[/green] ([cyan]q[/cyan]) - Exit the application")
 
-    console.print("\n[bold]Food Management:[/bold]") # Added newline and header
+    console.print("\n[bold]Food Management:[/bold]")
     console.print("  [green]add food <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]af[/cyan]) - Add a new food item")
-    console.print("  [green]list foods \\[pattern][/green] ([cyan]lf [pattern][/cyan]) - List all food items (optionally filter by glob pattern)")
+    console.print("  [green]list foods \\[pattern][/green] ([cyan]lf \\[pattern][/cyan]) - List all food items (optionally filter by glob pattern)")
     console.print("  [green]delete food <name>[/green] ([cyan]df <name>[/cyan]) - Delete a food item")
-    console.print("  [green]search food <query>[/green] ([cyan]sf <query>[/cyan]) - Search for food items in external databases (currently Open Food Facts) and enter interactive pager mode.")
+    console.print("  [green]search food <query>[/green] ([cyan]sf <query>[/cyan]) - Search for food items in external databases (currently Open Food Facts)")
 
-    console.print("\n[bold]Meal Management:[/bold]") # Added newline and header
-    console.print("  [green]add meal <name>[/green] ([cyan]am <name>[/cyan]) - Create a new meal definition and enter interactive editor.")
+    console.print("\n[bold]Meal Management:[/bold]")
+    console.print("  [green]add meal <name>[/green] ([cyan]am <name>[/cyan]) - Create a new meal definition and enter interactive editor")
     console.print("  [green]list meals[/green] ([cyan]lm[/cyan]) - List all meal definitions")
     console.print("  [green]delete meal <name>[/green] ([cyan]dm <name>[/cyan]) - Delete a meal definition")
-    console.print("  [green]edit meal <name>[/green] ([cyan]em <name>[/cyan]) - Edit an existing meal definition in interactive editor.")
+    console.print("  [green]edit meal <name>[/green] ([cyan]em <name>[/cyan]) - Edit an existing meal definition in interactive editor")
 
-    console.print("\n[bold]Activity Management:[/bold]") # Added newline and header
-    console.print("  [green]add activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]aa[/cyan]) - Add a new activity item (values represent calories/macros burned)")
-    console.print("  [green]list activities \\[pattern][/green] ([cyan]la [pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
+    console.print("\n[bold]Activity Management:[/bold]")
+    console.print("  [green]add activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]aa[/cyan]) - Add a new activity item")
+    console.print("  [green]list activities \\[pattern][/green] ([cyan]la \\[pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
     console.print("  [green]delete activity <name>[/green] ([cyan]da <name>[/cyan]) - Delete an activity item")
-    console.print("  [green]edit activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]ea[/cyan]) - Edit an existing activity item")
+    console.print("  [green]edit activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]ea <name> <calories> <fat> <carbs> <protein>[/cyan]) - Edit an existing activity item")
 
-    console.print("\n[bold]Daily Diary:[/bold]") # Added newline and header
-    console.print("  [green]log <type> <name> <quantity>[/green] ([cyan]l[/cyan]) - Log a food, meal, or activity for the current day. Type can be 'food', 'meal', or 'activity'.")
-    console.print("  [green]view day [date][/green] ([cyan]vd [date][/cyan]) - View the log and summary for a specific day (YYYY-MM-DD). Defaults to today.")
-    console.print("  [green]remove log <index>[/green] ([cyan]rl <index>[/cyan]) - Remove an item from the current day's log by its index.")
-    console.print("  [green]summary <days>[/green] ([cyan]s <days>[/cyan]) - Show a nutritional summary for the last N days.")
-
-    console.print("\n[italic]More commands coming soon![/italic]")
-    # Removed pager commands from main help as they are shown in the pager itself
-
+    console.print("\n[bold]Daily Diary:[/bold]")
+    console.print("  [green]log food[/green] ([cyan]lfd[/cyan]) - Log a food item for the current day using a pager")
+    console.print("  [green]log meal[/green] ([cyan]lml[/cyan]) - Log a meal for the current day using a pager")
+    console.print("  [green]log activity[/green] ([cyan]lac[/cyan]) - Log an activity for the current day using a pager")
+    console.print("  [green]view day \\[date][/green] ([cyan]vd \\[date][/cyan]) - View the log and summary for a specific day (YYYY-MM-DD). Defaults to today")
+    console.print("  [green]remove log <index>[/green] ([cyan]rl <index>[/cyan]) - Remove an item from the current day's log by its index")
+    console.print("  [green]summary <days>[/green] ([cyan]s <days>[/cyan]) - Show a nutritional summary for the last N days")
 
 def handle_exit():
     """Exits the application."""
@@ -969,60 +969,278 @@ def display_day_log(date_str, day_entries, app_data):
     console.print(f"\n[bold]Day Totals:[/bold] Calories: [magenta]{total_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{total_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{total_nutrition['carbs']:.2f}g[/green], Protein: [blue]{total_nutrition['protein']:.2f}g[/blue]")
 
 
-def handle_log(app_data, args):
-    """Logs a food, meal, or activity for the current day."""
-    parts = args.split(maxsplit=3) # Split into type, name, quantity
-    if len(parts) != 3:
-        console.print("[yellow]Usage:[/yellow] log <type> <name> <quantity>")
-        console.print("[yellow]Alias Usage:[/yellow] l <type> <name> <quantity>")
-        console.print("[yellow]Types:[/yellow] food, meal, activity")
+def handle_log_food(app_data):
+    """Logs a food item for the current day using a pager."""
+    foods = app_data["foods"]
+    if not foods:
+        console.print("[yellow]No food items found in your local database.[/yellow]")
         return
 
-    item_type = parts[0].lower()
-    item_name = parts[1].strip().lower()
-    quantity_str = parts[2].strip()
+    # Convert foods to a list for indexed access
+    food_list = sorted(foods.items(), key=lambda x: x[0])  # Sort by name
+    pager_session = PromptSession()
 
-    if item_type not in ["food", "meal", "activity"]:
-        console.print("[red]Error:[/red] Invalid item type. Must be 'food', 'meal', or 'activity'.")
+    current_page = 1
+    items_per_page = 10
+    total_pages = (len(food_list) + items_per_page - 1) // items_per_page
+
+    while True:
+        # Display the current page
+        start_index = (current_page - 1) * items_per_page
+        end_index = start_index + items_per_page
+        page_items = food_list[start_index:end_index]
+
+        table = Table(title=f"Food Database (Page {current_page}/{total_pages})")
+        table.add_column("Index", style="dim", width=5)
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Calories", style="magenta")
+        table.add_column("Fat (g)", style="yellow")
+        table.add_column("Carbs (g)", style="green")
+        table.add_column("Protein (g)", style="blue")
+
+        for i, (name, food) in enumerate(page_items, start=start_index + 1):
+            table.add_row(
+                str(i),
+                name,
+                f"{food.get('calories', 0):.2f}",
+                f"{food.get('fat', 0):.2f}",
+                f"{food.get('carbs', 0):.2f}",
+                f"{food.get('protein', 0):.2f}",
+            )
+
+        console.print(table)
+
+        # Prompt for user input
+        console.print("[bold]Commands:[/bold] [green]n[/green] (next), [green]p[/green] (prev), [green]q[/green] (quit), [green]<index>[/green] (select item)")
+        command = pager_session.prompt(f"Select a food (Page {current_page}/{total_pages})> ").strip().lower()
+
+        if command == "q":
+            console.print("[italic gray]Exiting food log pager.[/italic gray]")
+            break
+        elif command == "n":
+            if current_page < total_pages:
+                current_page += 1
+            else:
+                console.print("[yellow]Already on the last page.[/yellow]")
+        elif command == "p":
+            if current_page > 1:
+                current_page -= 1
+            else:
+                console.print("[yellow]Already on the first page.[/yellow]")
+        elif command.isdigit():
+            index = int(command) - 1
+            if 0 <= index < len(food_list):
+                selected_food = food_list[index]
+                name = selected_food[0]
+                console.print(f"[green]Selected food:[/green] [cyan]{name}[/cyan]")
+
+                # Prompt for quantity
+                quantity_str = pager_session.prompt(f"Enter quantity for [cyan]{name}[/cyan] (in pieces)> ").strip()
+                try:
+                    quantity = int(quantity_str)
+                    if quantity <= 0:
+                        console.print("[red]Error:[/red] Quantity must be a positive integer.")
+                        continue
+                except ValueError:
+                    console.print("[red]Error:[/red] Invalid quantity. Please enter a positive integer.")
+                    continue
+
+                # Log the food
+                current_date_str = get_current_date_str()
+                if current_date_str not in app_data["diary"]:
+                    app_data["diary"][current_date_str] = []
+
+                app_data["diary"][current_date_str].append({
+                    "type": "food",
+                    "name": name,
+                    "quantity": quantity,
+                })
+                save_data(DIARY_FILE, app_data["diary"])
+                console.print(f"[green]Logged {quantity} x {name} (food) for today.[/green]")
+                break
+            else:
+                console.print("[red]Error:[/red] Invalid index. Please select a valid index.")
+        else:
+            console.print("[yellow]Unknown command. Use 'n', 'p', 'q', or an index to select an item.[/yellow]")
+
+def handle_log_meal(app_data):
+    """Logs a meal for the current day using a pager."""
+    meals = app_data["meals"]
+    if not meals:
+        console.print("[yellow]No meal definitions found in your local database.[/yellow]")
         return
 
-    # Validate item exists in the respective database
-    if item_type == "food" and item_name not in app_data["foods"]:
-        console.print(f"[red]Error:[/red] Food item '[cyan]{item_name}[/cyan]' not found in your local food database.")
+    # Convert meals to a list for indexed access
+    meal_list = sorted(meals.items(), key=lambda x: x[0])  # Sort by name
+    pager_session = PromptSession()
+
+    current_page = 1
+    items_per_page = 10
+    total_pages = (len(meal_list) + items_per_page - 1) // items_per_page
+
+    while True:
+        # Display the current page
+        start_index = (current_page - 1) * items_per_page
+        end_index = start_index + items_per_page
+        page_items = meal_list[start_index:end_index]
+
+        table = Table(title=f"Meal Database (Page {current_page}/{total_pages})")
+        table.add_column("Index", style="dim", width=5)
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Contents", style="magenta", width=40, overflow="ellipsis", no_wrap=True)
+
+        for i, (name, contents) in enumerate(page_items, start=start_index + 1):
+            content_str = ", ".join([f"{item['food']} ({item['quantity']} pcs)" for item in contents])
+            table.add_row(str(i), name, content_str)
+
+        console.print(table)
+
+        # Prompt for user input
+        console.print("[bold]Commands:[/bold] [green]n[/green] (next), [green]p[/green] (prev), [green]q[/green] (quit), [green]<index>[/green] (select item)")
+        command = pager_session.prompt(f"Select a meal (Page {current_page}/{total_pages})> ").strip().lower()
+
+        if command == "q":
+            console.print("[italic gray]Exiting meal log pager.[/italic gray]")
+            break
+        elif command == "n":
+            if current_page < total_pages:
+                current_page += 1
+            else:
+                console.print("[yellow]Already on the last page.[/yellow]")
+        elif command == "p":
+            if current_page > 1:
+                current_page -= 1
+            else:
+                console.print("[yellow]Already on the first page.[/yellow]")
+        elif command.isdigit():
+            index = int(command) - 1
+            if 0 <= index < len(meal_list):
+                selected_meal = meal_list[index]
+                name = selected_meal[0]
+                console.print(f"[green]Selected meal:[/green] [cyan]{name}[/cyan]")
+
+                # Prompt for quantity
+                quantity_str = pager_session.prompt(f"Enter quantity for [cyan]{name}[/cyan] (in servings)> ").strip()
+                try:
+                    quantity = int(quantity_str)
+                    if quantity <= 0:
+                        console.print("[red]Error:[/red] Quantity must be a positive integer.")
+                        continue
+                except ValueError:
+                    console.print("[red]Error:[/red] Invalid quantity. Please enter a positive integer.")
+                    continue
+
+                # Log the meal
+                current_date_str = get_current_date_str()
+                if current_date_str not in app_data["diary"]:
+                    app_data["diary"][current_date_str] = []
+
+                app_data["diary"][current_date_str].append({
+                    "type": "meal",
+                    "name": name,
+                    "quantity": quantity,
+                })
+                save_data(DIARY_FILE, app_data["diary"])
+                console.print(f"[green]Logged {quantity} x {name} (meal) for today.[/green]")
+                break
+            else:
+                console.print("[red]Error:[/red] Invalid index. Please select a valid index.")
+        else:
+            console.print("[yellow]Unknown command. Use 'n', 'p', 'q', or an index to select an item.[/yellow]")
+
+def handle_log_activity(app_data):
+    """Logs an activity for the current day using a pager."""
+    activities = app_data["activities"]
+    if not activities:
+        console.print("[yellow]No activity items found in your local database.[/yellow]")
         return
-    elif item_type == "meal" and item_name not in app_data["meals"]:
-        console.print(f"[red]Error:[/red] Meal '[cyan]{item_name}[/cyan]' not found in your local meal database.")
-        return
-    elif item_type == "activity" and item_name not in app_data["activities"]:
-        console.print(f"[red]Error:[/red] Activity '[cyan]{item_name}[/cyan]' not found in your local activity database.")
-        return
 
-    try:
-        quantity = int(quantity_str)
-        if quantity <= 0:
-            console.print("[red]Error:[/red] Quantity must be a positive integer.")
-            return
-    except ValueError:
-        console.print("[red]Error:[/red] Invalid quantity. Quantity must be an integer.")
-        return
+    # Convert activities to a list for indexed access
+    activity_list = sorted(activities.items(), key=lambda x: x[0])  # Sort by name
+    pager_session = PromptSession()
 
-    current_date_str = get_current_date_str()
+    current_page = 1
+    items_per_page = 10
+    total_pages = (len(activity_list) + items_per_page - 1) // items_per_page
 
-    # Ensure the current day exists in the diary data
-    if current_date_str not in app_data["diary"]:
-        app_data["diary"][current_date_str] = []
+    while True:
+        # Display the current page
+        start_index = (current_page - 1) * items_per_page
+        end_index = start_index + items_per_page
+        page_items = activity_list[start_index:end_index]
 
-    # Add the entry to the current day's log
-    app_data["diary"][current_date_str].append({
-        "type": item_type,
-        "name": item_name,
-        "quantity": quantity,
-    })
+        table = Table(title=f"Activity Database (Page {current_page}/{total_pages})")
+        table.add_column("Index", style="dim", width=5)
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Calories", style="magenta")
+        table.add_column("Fat (g)", style="yellow")
+        table.add_column("Carbs (g)", style="green")
+        table.add_column("Protein (g)", style="blue")
 
-    save_data(DIARY_FILE, app_data["diary"])
-    console.print(f"[green]Logged {quantity} x {item_name} ({item_type}) for today.[/green]")
-    # Optionally display the current day's log after adding
-    # display_day_log(current_date_str, app_data["diary"][current_date_str], app_data)
+        for i, (name, activity) in enumerate(page_items, start=start_index + 1):
+            table.add_row(
+                str(i),
+                name,
+                f"{activity.get('calories', 0):.2f}",
+                f"{activity.get('fat', 0):.2f}",
+                f"{activity.get('carbs', 0):.2f}",
+                f"{activity.get('protein', 0):.2f}",
+            )
+
+        console.print(table)
+
+        # Prompt for user input
+        console.print("[bold]Commands:[/bold] [green]n[/green] (next), [green]p[/green] (prev), [green]q[/green] (quit), [green]<index>[/green] (select item)")
+        command = pager_session.prompt(f"Select an activity (Page {current_page}/{total_pages})> ").strip().lower()
+
+        if command == "q":
+            console.print("[italic gray]Exiting activity log pager.[/italic gray]")
+            break
+        elif command == "n":
+            if current_page < total_pages:
+                current_page += 1
+            else:
+                console.print("[yellow]Already on the last page.[/yellow]")
+        elif command == "p":
+            if current_page > 1:
+                current_page -= 1
+            else:
+                console.print("[yellow]Already on the first page.[/yellow]")
+        elif command.isdigit():
+            index = int(command) - 1
+            if 0 <= index < len(activity_list):
+                selected_activity = activity_list[index]
+                name = selected_activity[0]
+                console.print(f"[green]Selected activity:[/green] [cyan]{name}[/cyan]")
+
+                # Prompt for quantity
+                quantity_str = pager_session.prompt(f"Enter quantity for [cyan]{name}[/cyan] (in repetitions)> ").strip()
+                try:
+                    quantity = int(quantity_str)
+                    if quantity <= 0:
+                        console.print("[red]Error:[/red] Quantity must be a positive integer.")
+                        continue
+                except ValueError:
+                    console.print("[red]Error:[/red] Invalid quantity. Please enter a positive integer.")
+                    continue
+
+                # Log the activity
+                current_date_str = get_current_date_str()
+                if current_date_str not in app_data["diary"]:
+                    app_data["diary"][current_date_str] = []
+
+                app_data["diary"][current_date_str].append({
+                    "type": "activity",
+                    "name": name,
+                    "quantity": quantity,
+                })
+                save_data(DIARY_FILE, app_data["diary"])
+                console.print(f"[green]Logged {quantity} x {name} (activity) for today.[/green]")
+                break
+            else:
+                console.print("[red]Error:[/red] Invalid index. Please select a valid index.")
+        else:
+            console.print("[yellow]Unknown command. Use 'n', 'p', 'q', or an index to select an item.[/yellow]")
 
 
 def handle_view_day(app_data, args):
@@ -1237,7 +1455,14 @@ def run_tracker():
                       console.print(f"[yellow]Unknown 'edit' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             # --- Daily Diary Commands ---
             elif command == "log":
-                 handle_log(app_data, args)
+                 if args.lower().startswith("food"):
+                     handle_log_food(app_data)
+                 elif args.lower().startswith("meal"):
+                     handle_log_meal(app_data)
+                 elif args.lower().startswith("activity"):
+                     handle_log_activity(app_data)
+                 else:
+                      console.print(f"[yellow]Unknown 'log' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             elif command == "view":
                  if args.lower().startswith("day"):
                       handle_view_day(app_data, args[len("day"):].strip())
