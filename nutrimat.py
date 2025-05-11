@@ -8,7 +8,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 import math
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta # Import timedelta for date calculations
 
 # Initialize Rich Console
 console = Console()
@@ -73,6 +73,10 @@ COMMAND_ALIASES = {
     "la": "list activities", # Alias for list activities
     "da": "delete activity", # Alias for delete activity
     "ea": "edit activity", # Alias for edit activity
+    "l": "log", # Alias for log
+    "vd": "view day", # Alias for view day
+    "rl": "remove log", # Alias for remove log
+    "s": "summary", # Alias for summary
     # Add aliases for other commands as we implement them
 }
 
@@ -99,6 +103,12 @@ def handle_help():
     console.print("  [green]list activities \\[pattern][/green] ([cyan]la [pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
     console.print("  [green]delete activity <name>[/green] ([cyan]da <name>[/cyan]) - Delete an activity item")
     console.print("  [green]edit activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]ea[/cyan]) - Edit an existing activity item")
+
+    console.print("\n[bold]Daily Diary:[/bold]") # Added newline and header
+    console.print("  [green]log <type> <name> <quantity>[/green] ([cyan]l[/cyan]) - Log a food, meal, or activity for the current day. Type can be 'food', 'meal', or 'activity'.")
+    console.print("  [green]view day [date][/green] ([cyan]vd [date][/cyan]) - View the log and summary for a specific day (YYYY-MM-DD). Defaults to today.")
+    console.print("  [green]remove log <index>[/green] ([cyan]rl <index>[/cyan]) - Remove an item from the current day's log by its index.")
+    console.print("  [green]summary <days>[/green] ([cyan]s <days>[/cyan]) - Show a nutritional summary for the last N days.")
 
     console.print("\n[italic]More commands coming soon![/italic]")
     # Removed pager commands from main help as they are shown in the pager itself
@@ -831,6 +841,293 @@ def handle_edit_activity(app_data, args):
     save_data(ACTIVITIES_FILE, app_data["activities"])
     console.print(f"[green]Edited activity:[/green] [cyan]{name}[/cyan]")
 
+# --- Daily Diary Handlers ---
+
+def get_current_date_str():
+    """Returns the current date as a YYYY-MM-DD string."""
+    return datetime.now().strftime("%Y-%m-%d")
+
+def calculate_day_nutrition(day_entries, app_data):
+    """Calculates the total nutritional values for a given day's entries."""
+    total_calories = 0
+    total_fat = 0
+    total_carbs = 0
+    total_protein = 0
+
+    for entry in day_entries:
+        item_type = entry["type"]
+        item_name = entry["name"]
+        quantity = entry["quantity"]
+
+        if item_type == "food":
+            if item_name in app_data["foods"]:
+                food = app_data["foods"][item_name]
+                total_calories += food.get("calories", 0) * quantity
+                total_fat += food.get("fat", 0) * quantity
+                total_carbs += food.get("carbs", 0) * quantity
+                total_protein += food.get("protein", 0) * quantity
+            else:
+                console.print(f"[yellow]Warning:[/yellow] Food item '[cyan]{item_name}[/cyan]' in diary entry not found in local food database. Skipping.")
+        elif item_type == "meal":
+            if item_name in app_data["meals"]:
+                meal_contents = app_data["meals"][item_name]
+                # Calculate nutrition for the meal contents and multiply by meal quantity
+                meal_nutrition = calculate_meal_nutrition(meal_contents, app_data["foods"])
+                total_calories += meal_nutrition["calories"] * quantity
+                total_fat += meal_nutrition["fat"] * quantity
+                total_carbs += meal_nutrition["carbs"] * quantity
+                total_protein += meal_nutrition["protein"] * quantity
+            else:
+                console.print(f"[yellow]Warning:[/yellow] Meal '[cyan]{item_name}[/cyan]' in diary entry not found in local meal database. Skipping.")
+        elif item_type == "activity":
+            if item_name in app_data["activities"]:
+                activity = app_data["activities"][item_name]
+                # Activities subtract from totals, so use negative values
+                total_calories -= activity.get("calories", 0) * quantity
+                total_fat -= activity.get("fat", 0) * quantity
+                total_carbs -= activity.get("carbs", 0) * quantity
+                total_protein -= activity.get("protein", 0) * quantity
+            else:
+                console.print(f"[yellow]Warning:[/yellow] Activity '[cyan]{item_name}[/cyan]' in diary entry not found in local activity database. Skipping.")
+
+    return {
+        "calories": total_calories,
+        "fat": total_fat,
+        "carbs": total_carbs,
+        "protein": total_protein,
+    }
+
+
+def display_day_log(date_str, day_entries, app_data):
+    """Displays the log and nutritional summary for a specific day."""
+    console.print(f"\n[bold]Daily Log for:[/bold] [cyan]{date_str}[/cyan]")
+
+    if not day_entries:
+        console.print("[yellow]No entries logged for this day.[/yellow]")
+        return
+
+    table = Table(title="Logged Items")
+    table.add_column("Index", style="dim", width=5)
+    table.add_column("Type", style="magenta")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Quantity", style="default")
+    table.add_column("Calories", style="magenta") # Consistent color
+    table.add_column("Fat (g)", style="yellow") # Consistent color
+    table.add_column("Carbs (g)", style="green") # Consistent color
+    table.add_column("Protein (g)", style="blue") # Consistent color
+
+    for i, entry in enumerate(day_entries):
+        item_type = entry["type"]
+        item_name = entry["name"]
+        quantity = entry["quantity"]
+        calories = 0
+        fat = 0
+        carbs = 0
+        protein = 0
+
+        # Calculate nutrition for the individual item for display
+        if item_type == "food":
+            if item_name in app_data["foods"]:
+                food = app_data["foods"][item_name]
+                calories = food.get("calories", 0) * quantity
+                fat = food.get("fat", 0) * quantity
+                carbs = food.get("carbs", 0) * quantity
+                protein = food.get("protein", 0) * quantity
+        elif item_type == "meal":
+            if item_name in app_data["meals"]:
+                meal_contents = app_data["meals"][item_name]
+                meal_nutrition = calculate_meal_nutrition(meal_contents, app_data["foods"])
+                calories = meal_nutrition["calories"] * quantity
+                fat = meal_nutrition["fat"] * quantity
+                carbs = meal_nutrition["carbs"] * quantity
+                protein = meal_nutrition["protein"] * quantity
+        elif item_type == "activity":
+             if item_name in app_data["activities"]:
+                  activity = app_data["activities"][item_name]
+                  # Display burned calories/macros as negative
+                  calories = -activity.get("calories", 0) * quantity
+                  fat = -activity.get("fat", 0) * quantity
+                  carbs = -activity.get("carbs", 0) * quantity
+                  protein = -activity.get("protein", 0) * quantity
+
+
+        table.add_row(
+            str(i + 1), # Display index starting from 1
+            item_type.capitalize(),
+            item_name,
+            str(quantity),
+            f"{calories:.2f}",
+            f"{fat:.2f}",
+            f"{carbs:.2f}",
+            f"{protein:.2f}",
+        )
+
+    console.print(table)
+
+    # Display total nutrition for the day
+    total_nutrition = calculate_day_nutrition(day_entries, app_data)
+    console.print(f"\n[bold]Day Totals:[/bold] Calories: [magenta]{total_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{total_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{total_nutrition['carbs']:.2f}g[/green], Protein: [blue]{total_nutrition['protein']:.2f}g[/blue]")
+
+
+def handle_log(app_data, args):
+    """Logs a food, meal, or activity for the current day."""
+    parts = args.split(maxsplit=3) # Split into type, name, quantity
+    if len(parts) != 3:
+        console.print("[yellow]Usage:[/yellow] log <type> <name> <quantity>")
+        console.print("[yellow]Alias Usage:[/yellow] l <type> <name> <quantity>")
+        console.print("[yellow]Types:[/yellow] food, meal, activity")
+        return
+
+    item_type = parts[0].lower()
+    item_name = parts[1].strip().lower()
+    quantity_str = parts[2].strip()
+
+    if item_type not in ["food", "meal", "activity"]:
+        console.print("[red]Error:[/red] Invalid item type. Must be 'food', 'meal', or 'activity'.")
+        return
+
+    # Validate item exists in the respective database
+    if item_type == "food" and item_name not in app_data["foods"]:
+        console.print(f"[red]Error:[/red] Food item '[cyan]{item_name}[/cyan]' not found in your local food database.")
+        return
+    elif item_type == "meal" and item_name not in app_data["meals"]:
+        console.print(f"[red]Error:[/red] Meal '[cyan]{item_name}[/cyan]' not found in your local meal database.")
+        return
+    elif item_type == "activity" and item_name not in app_data["activities"]:
+        console.print(f"[red]Error:[/red] Activity '[cyan]{item_name}[/cyan]' not found in your local activity database.")
+        return
+
+    try:
+        quantity = int(quantity_str)
+        if quantity <= 0:
+            console.print("[red]Error:[/red] Quantity must be a positive integer.")
+            return
+    except ValueError:
+        console.print("[red]Error:[/red] Invalid quantity. Quantity must be an integer.")
+        return
+
+    current_date_str = get_current_date_str()
+
+    # Ensure the current day exists in the diary data
+    if current_date_str not in app_data["diary"]:
+        app_data["diary"][current_date_str] = []
+
+    # Add the entry to the current day's log
+    app_data["diary"][current_date_str].append({
+        "type": item_type,
+        "name": item_name,
+        "quantity": quantity,
+    })
+
+    save_data(DIARY_FILE, app_data["diary"])
+    console.print(f"[green]Logged {quantity} x {item_name} ({item_type}) for today.[/green]")
+    # Optionally display the current day's log after adding
+    # display_day_log(current_date_str, app_data["diary"][current_date_str], app_data)
+
+
+def handle_view_day(app_data, args):
+    """Views the log and summary for a specific day."""
+    date_str = args.strip()
+    if not date_str:
+        # Default to today if no date is provided
+        date_str = get_current_date_str()
+
+    # Validate date format (basic YYYY-MM-DD check)
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        console.print("[red]Error:[/red] Invalid date format. Please use YYYY-MM-DD.")
+        return
+
+    if date_str not in app_data["diary"]:
+        console.print(f"[yellow]No diary entries found for date:[/yellow] [cyan]{date_str}[/cyan]")
+        return
+
+    display_day_log(date_str, app_data["diary"][date_str], app_data)
+
+
+def handle_remove_log(app_data, args):
+    """Removes an item from the current day's log by index."""
+    current_date_str = get_current_date_str()
+
+    if current_date_str not in app_data["diary"] or not app_data["diary"][current_date_str]:
+        console.print("[yellow]No entries logged for today to remove.[/yellow]")
+        return
+
+    # Display the current day's log with indices first
+    display_day_log(current_date_str, app_data["diary"][current_date_str], app_data)
+
+    index_str = args.strip()
+    if not index_str:
+        console.print("[yellow]Usage:[/yellow] remove log <index>")
+        console.print("[yellow]Alias Usage:[/yellow] rl <index>")
+        return
+
+    try:
+        index_to_remove = int(index_str) - 1 # Adjust for 0-based indexing
+        if index_to_remove < 0 or index_to_remove >= len(app_data["diary"][current_date_str]):
+            console.print(f"[red]Error:[/red] Invalid index. Please provide a valid index from the list (1 to {len(app_data['diary'][current_date_str])}).")
+            return
+    except ValueError:
+        console.print("[red]Error:[/red] Invalid index. Please provide an integer index.")
+        return
+
+    removed_item = app_data["diary"][current_date_str].pop(index_to_remove)
+    save_data(DIARY_FILE, app_data["diary"])
+    console.print(f"[green]Removed item at index {index_str}:[/green] {removed_item['quantity']} x {removed_item['name']} ({removed_item['type']}).")
+    # Optionally display the updated log
+    # display_day_log(current_date_str, app_data["diary"][current_date_str], app_data)
+
+
+def handle_summary(app_data, args):
+    """Shows a nutritional summary for the last N days."""
+    days_str = args.strip()
+    if not days_str:
+        console.print("[yellow]Usage:[/yellow] summary <days>")
+        console.print("[yellow]Alias Usage:[/yellow] s <days>")
+        return
+
+    try:
+        num_days = int(days_str)
+        if num_days <= 0:
+            console.print("[red]Error:[/red] Number of days must be a positive integer.")
+            return
+    except ValueError:
+        console.print("[red]Error:[/red] Invalid number of days. Please provide an integer.")
+        return
+
+    today = datetime.now().date()
+    total_calories = 0
+    total_fat = 0
+    total_carbs = 0
+    total_protein = 0
+    days_with_entries = 0
+
+    console.print(f"\n[bold]Nutritional Summary for the Last {num_days} Days:[/bold]")
+
+    for i in range(num_days):
+        current_date = today - timedelta(days=i)
+        date_str = current_date.strftime("%Y-%m-%d")
+
+        if date_str in app_data["diary"] and app_data["diary"][date_str]:
+            days_with_entries += 1
+            day_nutrition = calculate_day_nutrition(app_data["diary"][date_str], app_data)
+            total_calories += day_nutrition["calories"]
+            total_fat += day_nutrition["fat"]
+            total_carbs += day_nutrition["carbs"]
+            total_protein += day_nutrition["protein"]
+            console.print(f"  [cyan]{date_str}:[/cyan] Calories: [magenta]{day_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{day_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{day_nutrition['carbs']:.2f}g[/green], Protein: [blue]{day_nutrition['protein']:.2f}g[/blue]")
+
+
+    if days_with_entries > 0:
+        console.print("\n[bold]Average Daily Totals (over days with entries):[/bold]")
+        console.print(f"  Calories: [magenta]{total_calories / days_with_entries:.2f}[/magenta]")
+        console.print(f"  Fat: [yellow]{total_fat / days_with_entries:.2f}g[/yellow]")
+        console.print(f"  Carbs: [green]{total_carbs / days_with_entries:.2f}g[/green]")
+        console.print(f"  Protein: [blue]{total_protein / days_with_entries:.2f}g[/blue]")
+    else:
+        console.print("[yellow]No diary entries found in the last specified days.[/yellow]")
+
 
 # --- Main Application Loop ---
 
@@ -843,14 +1140,14 @@ def run_tracker():
     foods_data = load_data(FOODS_FILE)
     meals_data = load_data(MEALS_FILE)
     activities_data = load_data(ACTIVITIES_FILE) # Load activities data
-    diary_data = load_data(DIARY_FILE)
+    diary_data = load_data(DIARY_FILE) # Load diary data
 
     # This is where we will store the data in memory while the app runs
     app_data = {
         "foods": foods_data,
         "meals": meals_data,
         "activities": activities_data, # Include activities in app_data
-        "diary": diary_data,
+        "diary": diary_data, # Include diary in app_data
         "last_search_results": [] # This is no longer strictly necessary for the pager, but keeping for now
     }
 
@@ -862,7 +1159,15 @@ def run_tracker():
             # Get user input using prompt_toolkit from the main session
             command_line = main_session.prompt().strip()
             if not command_line:
-                continue # Skip empty input
+                # Display current day's summary if input is empty
+                current_date_str = get_current_date_str()
+                if current_date_str in app_data["diary"] and app_data["diary"][current_date_str]:
+                     console.print("\n[bold]Today's Summary:[/bold]")
+                     today_nutrition = calculate_day_nutrition(app_data["diary"][current_date_str], app_data)
+                     console.print(f"  Calories: [magenta]{today_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{today_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{today_nutrition['carbs']:.2f}g[/green], Protein: [blue]{today_nutrition['protein']:.2f}g[/blue]")
+                else:
+                     console.print("[italic gray]No entries logged for today.[/italic gray]")
+                continue # Skip empty input after displaying summary
 
             # --- Alias Handling ---
             # Check if the command is an alias and expand it
@@ -930,6 +1235,21 @@ def run_tracker():
                       handle_edit_activity(app_data, args[len("activity"):].strip())
                  else:
                       console.print(f"[yellow]Unknown 'edit' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
+            # --- Daily Diary Commands ---
+            elif command == "log":
+                 handle_log(app_data, args)
+            elif command == "view":
+                 if args.lower().startswith("day"):
+                      handle_view_day(app_data, args[len("day"):].strip())
+                 else:
+                      console.print(f"[yellow]Unknown 'view' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
+            elif command == "remove":
+                 if args.lower().startswith("log"):
+                      handle_remove_log(app_data, args[len("log"):].strip())
+                 else:
+                      console.print(f"[yellow]Unknown 'remove' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
+            elif command == "summary":
+                 handle_summary(app_data, args)
             else:
                 console.print(f"[yellow]Unknown command:[/yellow] {command}. Type '[green]help[/green]' for a list of commands.")
 
