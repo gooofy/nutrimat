@@ -527,7 +527,8 @@ def run_meal_editor(app_data, meal_name, initial_contents):
         display_meal_contents(meal_name, current_meal_contents, app_data["foods"])
 
         # Updated editor commands help text - removed save/discard
-        console.print("\n[bold]Editor Commands:[/bold] [green]list [pattern][/green], [green]add <food_name> <pieces>[/green], [green]delete <food_name>[/green], [green]help[/green], [green]quit[/green]")
+        # Escaped the backslash before the square bracket with another backslash
+        console.print("\n[bold]Editor Commands:[/bold] [green]list \\[pattern][/green], [green]add <food_name> <pieces>[/green], [green]delete <food_name>[/green], [green]help[/green], [green]quit[/green]")
         editor_command_line = meal_editor_session.prompt().strip().lower()
 
         if editor_command_line == 'quit' or editor_command_line == 'q':
@@ -538,7 +539,8 @@ def run_meal_editor(app_data, meal_name, initial_contents):
              break # Exit the editor loop
         elif editor_command_line == 'help' or editor_command_line == 'h':
              console.print("\n[bold]Meal Editor Commands:[/bold]")
-             console.print("  [green]list [pattern][/green] ([cyan]l [pattern][/cyan]) - List food items in your local database (optionally filter).")
+             # escape [
+             console.print("  [green]list \\[pattern][/green] ([cyan]l [pattern][/cyan]) - List food items in your local database (optionally filter).")
              console.print("  [green]add <food_name> <pieces>[/green] ([cyan]a <food_name> <pieces>[/cyan]) - Add a food item with quantity in pieces to this meal.")
              console.print("  [green]delete <food_name>[/green] ([cyan]d <food_name>[/cyan]) - Remove a food item from this meal.")
              # Removed save/discard from help text
@@ -626,7 +628,8 @@ def handle_list_meals(app_data):
 
     table = Table(title="Meal Definitions")
     table.add_column("Meal Name", style="cyan", no_wrap=True)
-    table.add_column("Contents", style="magenta")
+    # Set a max width for the Contents column and enable overflow ellipsis, also set no_wrap=True to make this work
+    table.add_column("Contents", style="magenta", width=40, overflow="ellipsis", no_wrap=True)
     table.add_column("Calories", style="yellow")
     table.add_column("Fat (g)", style="green")
     table.add_column("Carbs (g)", style="blue")
@@ -641,7 +644,7 @@ def handle_list_meals(app_data):
         total_nutrition = calculate_meal_nutrition(contents, app_data["foods"])
         table.add_row(
             meal_name,
-            content_str,
+            content_str, # The truncation is handled by the column definition
             f"{total_nutrition['calories']:.2f}",
             f"{total_nutrition['fat']:.2f}",
             f"{total_nutrition['carbs']:.2f}",
