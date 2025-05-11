@@ -482,10 +482,10 @@ def display_meal_contents(meal_name, meal_contents, foods_data):
     table.add_column("Food", style="cyan", no_wrap=True)
     table.add_column("Quantity (pieces)", style="default") # Changed title and style
     # Removed Grams/Piece column
-    table.add_column("Calories", style="yellow") # Consistent color
-    table.add_column("Fat (g)", style="green") # Consistent color
-    table.add_column("Carbs (g)", style="blue") # Consistent color
-    table.add_column("Protein (g)", style="red") # Consistent color
+    table.add_column("Calories", style="magenta") # Consistent color (magenta)
+    table.add_column("Fat (g)", style="yellow") # Consistent color (yellow)
+    table.add_column("Carbs (g)", style="green") # Consistent color (green)
+    table.add_column("Protein (g)", style="blue") # Consistent color (blue)
 
     for item in meal_contents:
         food_name = item["food"]
@@ -510,7 +510,7 @@ def display_meal_contents(meal_name, meal_contents, foods_data):
 
     # Display total nutrition
     total_nutrition = calculate_meal_nutrition(meal_contents, foods_data)
-    console.print(f"\n[bold]Total Nutrition:[/bold] Calories: [yellow]{total_nutrition['calories']:.2f}[/yellow], Fat: [green]{total_nutrition['fat']:.2f}g[/green], Carbs: [blue]{total_nutrition['carbs']:.2f}g[/blue], Protein: [red]{total_nutrition['protein']:.2f}g[/red]") # Consistent colors
+    console.print(f"\n[bold]Total Nutrition:[/bold] Calories: [magenta]{total_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{total_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{total_nutrition['carbs']:.2f}g[/green], Protein: [blue]{total_nutrition['protein']:.2f}g[/blue]") # Consistent colors
 
 
 def run_meal_editor(app_data, meal_name, initial_contents):
@@ -526,27 +526,28 @@ def run_meal_editor(app_data, meal_name, initial_contents):
     while True:
         display_meal_contents(meal_name, current_meal_contents, app_data["foods"])
 
-        console.print("\n[bold]Editor Commands:[/bold] [green]list [pattern][/green], [green]add <food_name> <pieces>[/green], [green]delete <food_name>[/green], [green]save[/green], [green]discard[/green], [green]help[/green], [green]quit[/green]")
+        # Updated editor commands help text - removed save/discard
+        console.print("\n[bold]Editor Commands:[/bold] [green]list [pattern][/green], [green]add <food_name> <pieces>[/green], [green]delete <food_name>[/green], [green]help[/green], [green]quit[/green]")
         editor_command_line = meal_editor_session.prompt().strip().lower()
 
         if editor_command_line == 'quit' or editor_command_line == 'q':
-             console.print("[italic gray]Exiting meal editor.[/italic gray]")
+             # Save changes automatically on quit
+             app_data["meals"][meal_name] = current_meal_contents
+             save_data(MEALS_FILE, app_data["meals"])
+             console.print(f"[green]Meal '[cyan]{meal_name}[/cyan]' saved automatically on exit.[/green]")
              break # Exit the editor loop
         elif editor_command_line == 'help' or editor_command_line == 'h':
              console.print("\n[bold]Meal Editor Commands:[/bold]")
              console.print("  [green]list [pattern][/green] ([cyan]l [pattern][/cyan]) - List food items in your local database (optionally filter).")
-             # Removed search command from editor help
-             console.print("  [green]add <food_name> <pieces>[/green] ([cyan]a <food_name> <pieces>[/cyan]) - Add a food item with quantity in pieces to this meal.") # Updated help text
+             console.print("  [green]add <food_name> <pieces>[/green] ([cyan]a <food_name> <pieces>[/cyan]) - Add a food item with quantity in pieces to this meal.")
              console.print("  [green]delete <food_name>[/green] ([cyan]d <food_name>[/cyan]) - Remove a food item from this meal.")
-             console.print("  [green]save[/green] - Save the current meal definition and exit.")
-             console.print("  [green]discard[/green] ([cyan]dc[/cyan]) - Discard changes and exit.")
+             # Removed save/discard from help text
              console.print("  [green]help[/green] ([cyan]h[/cyan]) - Show this help message.")
-             console.print("  [green]quit[/green] ([cyan]q[/cyan]) - Exit the editor without saving.")
+             console.print("  [green]quit[/green] ([cyan]q[/cyan]) - Save changes and exit the editor.") # Updated help text
         elif editor_command_line.startswith('list') or editor_command_line.startswith('l'):
             # Pass the rest of the args as filter pattern to handle_list_foods
             list_args = editor_command_line.split(maxsplit=1)[1] if len(editor_command_line.split(maxsplit=1)) > 1 else ""
             handle_list_foods(app_data, list_args.strip()) # Reuse the existing list foods handler with filter
-        # Removed elif for 'search' command
         elif editor_command_line.startswith('add ') or editor_command_line.startswith('a '):
             add_args = editor_command_line.split(maxsplit=2) # Split into food_name, pieces
             if len(add_args) != 3: # Expecting 2 arguments after 'add' or 'a'
@@ -594,14 +595,8 @@ def run_meal_editor(app_data, meal_name, initial_contents):
              else:
                   console.print(f"[yellow]Warning:[/yellow] Food item '[cyan]{food_name_to_delete}[/cyan]' not found in the meal.")
 
-        elif editor_command_line == 'save':
-            app_data["meals"][meal_name] = current_meal_contents
-            save_data(MEALS_FILE, app_data["meals"])
-            console.print(f"[green]Meal '[cyan]{meal_name}[/cyan]' saved.[/green]")
-            break # Exit the editor loop
-        elif editor_command_line == 'discard' or editor_command_line == 'dc':
-            console.print("[yellow]Discarding changes to meal.[/yellow]")
-            break # Exit the editor loop
+        # Removed elif for 'save' command
+        # Removed elif for 'discard' command
         else:
             console.print(f"[yellow]Unknown editor command:[/yellow] {editor_command_line}. Type '[green]help[/green]' for a list of commands.")
 
