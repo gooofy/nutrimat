@@ -343,7 +343,7 @@ def handle_search_food(app_data, args):
                  add_parts = add_args.split(maxsplit=2)
 
                  if len(add_parts) < 2:
-                      console.print("[yellow]Usage:[/yellow] a <index> <local_name> \[quantity in grams, default 100g]]")
+                      console.print("[yellow]Usage:[/yellow] a <index> <local_name> \\[quantity in grams, default 100g][/yellow]")
                       continue
 
                  try:
@@ -414,7 +414,7 @@ def handle_search_food(app_data, args):
 
                  if local_name in app_data["foods"]:
                       console.print(f"[yellow]Warning:[/yellow] Food item '[cyan]{local_name}[/cyan]' already exists in your local database. Use 'delete food' first if you want to replace it.")
-                      continue
+                      return
 
                  app_data["foods"][local_name] = {
                       "calories": calories,
@@ -449,17 +449,16 @@ def calculate_meal_nutrition(meal_contents, foods_data):
 
     for item in meal_contents:
         food_name = item["food"]
-        quantity = item["quantity"]
+        # Meal contents now store quantity as pieces
+        quantity_pieces = item["quantity"]
 
         if food_name in foods_data:
             food = foods_data[food_name]
-            # Nutritional values are stored per 100g in the local database
-            # Assume quantity in meal definition is in grams
-            factor = quantity / 100.0
-            total_calories += food.get("calories", 0) * factor
-            total_fat += food.get("fat", 0) * factor
-            total_carbs += food.get("carbs", 0) * factor
-            total_protein += food.get("protein", 0) * factor
+            # Nutritional values are stored per piece/portion in the local database
+            total_calories += food.get("calories", 0) * quantity_pieces
+            total_fat += food.get("fat", 0) * quantity_pieces
+            total_carbs += food.get("carbs", 0) * quantity_pieces
+            total_protein += food.get("protein", 0) * quantity_pieces
         else:
             console.print(f"[yellow]Warning:[/yellow] Food item '[cyan]{food_name}[/cyan]' in meal definition not found in local food database. Skipping.")
 
@@ -481,37 +480,37 @@ def display_meal_contents(meal_name, meal_contents, foods_data):
 
     table = Table(title="Meal Contents")
     table.add_column("Food", style="cyan", no_wrap=True)
-    table.add_column("Quantity (g)", style="magenta")
-    table.add_column("Calories", style="yellow")
-    table.add_column("Fat (g)", style="green")
-    table.add_column("Carbs (g)", style="blue")
-    table.add_column("Protein (g)", style="red")
+    table.add_column("Quantity (pieces)", style="default") # Changed title and style
+    # Removed Grams/Piece column
+    table.add_column("Calories", style="yellow") # Consistent color
+    table.add_column("Fat (g)", style="green") # Consistent color
+    table.add_column("Carbs (g)", style="blue") # Consistent color
+    table.add_column("Protein (g)", style="red") # Consistent color
 
     for item in meal_contents:
         food_name = item["food"]
-        quantity = item["quantity"]
+        quantity_pieces = item["quantity"] # Use quantity (pieces)
         food = foods_data.get(food_name)
 
         if food:
-             # Nutritional values are stored per 100g in the local database
-             factor = quantity / 100.0
+             # Nutritional values are stored per piece/portion in the local database
              table.add_row(
                  food_name,
-                 str(quantity),
-                 f"{food.get('calories', 0) * factor:.2f}",
-                 f"{food.get('fat', 0) * factor:.2f}",
-                 f"{food.get('carbs', 0) * factor:.2f}",
-                 f"{food.get('protein', 0) * factor:.2f}",
+                 str(quantity_pieces),
+                 f"{food.get('calories', 0) * quantity_pieces:.2f}",
+                 f"{food.get('fat', 0) * quantity_pieces:.2f}",
+                 f"{food.get('carbs', 0) * quantity_pieces:.2f}",
+                 f"{food.get('protein', 0) * quantity_pieces:.2f}",
              )
         else:
-             table.add_row(food_name, str(quantity), "[red]N/A[/red]", "[red]N/A[/red]", "[red]N/A[/red]", "[red]N/A[/red]")
+             table.add_row(food_name, str(quantity_pieces), "[red]N/A[/red]", "[red]N/A[/red]", "[red]N/A[/red]", "[red]N/A[/red]")
 
 
     console.print(table)
 
     # Display total nutrition
     total_nutrition = calculate_meal_nutrition(meal_contents, foods_data)
-    console.print(f"\n[bold]Total Nutrition:[/bold] Calories: [magenta]{total_nutrition['calories']:.2f}[/magenta], Fat: [yellow]{total_nutrition['fat']:.2f}g[/yellow], Carbs: [green]{total_nutrition['carbs']:.2f}g[/green], Protein: [blue]{total_nutrition['protein']:.2f}g[/blue]")
+    console.print(f"\n[bold]Total Nutrition:[/bold] Calories: [yellow]{total_nutrition['calories']:.2f}[/yellow], Fat: [green]{total_nutrition['fat']:.2f}g[/green], Carbs: [blue]{total_nutrition['carbs']:.2f}g[/blue], Protein: [red]{total_nutrition['protein']:.2f}g[/red]") # Consistent colors
 
 
 def run_meal_editor(app_data, meal_name, initial_contents):
@@ -527,7 +526,7 @@ def run_meal_editor(app_data, meal_name, initial_contents):
     while True:
         display_meal_contents(meal_name, current_meal_contents, app_data["foods"])
 
-        console.print("\n[bold]Editor Commands:[/bold] [green]list[/green] (foods), [green]search <query>[/green], [green]add <food_name> <quantity>[/green], [green]delete <food_name>[/green], [green]save[/green], [green]discard[/green], [green]help[/green], [green]quit[/green]")
+        console.print("\n[bold]Editor Commands:[/bold] [green]list [pattern][/green], [green]add <food_name> <pieces>[/green], [green]delete <food_name>[/green], [green]save[/green], [green]discard[/green], [green]help[/green], [green]quit[/green]")
         editor_command_line = meal_editor_session.prompt().strip().lower()
 
         if editor_command_line == 'quit' or editor_command_line == 'q':
@@ -535,51 +534,52 @@ def run_meal_editor(app_data, meal_name, initial_contents):
              break # Exit the editor loop
         elif editor_command_line == 'help' or editor_command_line == 'h':
              console.print("\n[bold]Meal Editor Commands:[/bold]")
-             console.print("  [green]list[/green] ([cyan]l[/cyan]) - List food items in your local database.")
-             console.print("  [green]search <query>[/green] ([cyan]s <query>[/cyan]) - Search for food items in external databases (Open Food Facts).")
-             console.print("  [green]add <food_name> <quantity>[/green] ([cyan]a <food_name> <quantity>[/cyan]) - Add a food item with quantity (in grams) to this meal.")
+             console.print("  [green]list [pattern][/green] ([cyan]l [pattern][/cyan]) - List food items in your local database (optionally filter).")
+             # Removed search command from editor help
+             console.print("  [green]add <food_name> <pieces>[/green] ([cyan]a <food_name> <pieces>[/cyan]) - Add a food item with quantity in pieces to this meal.") # Updated help text
              console.print("  [green]delete <food_name>[/green] ([cyan]d <food_name>[/cyan]) - Remove a food item from this meal.")
              console.print("  [green]save[/green] - Save the current meal definition and exit.")
              console.print("  [green]discard[/green] ([cyan]dc[/cyan]) - Discard changes and exit.")
              console.print("  [green]help[/green] ([cyan]h[/cyan]) - Show this help message.")
              console.print("  [green]quit[/green] ([cyan]q[/cyan]) - Exit the editor without saving.")
-        elif editor_command_line == 'list' or editor_command_line == 'l':
-            handle_list_foods(app_data) # Reuse the existing list foods handler
-        elif editor_command_line.startswith('search ') or editor_command_line.startswith('s '):
-            search_query = editor_command_line.split(maxsplit=1)[1].strip()
-            # Reuse the existing search food handler - it will enter its own pager mode
-            handle_search_food(app_data, search_query)
+        elif editor_command_line.startswith('list') or editor_command_line.startswith('l'):
+            # Pass the rest of the args as filter pattern to handle_list_foods
+            list_args = editor_command_line.split(maxsplit=1)[1] if len(editor_command_line.split(maxsplit=1)) > 1 else ""
+            handle_list_foods(app_data, list_args.strip()) # Reuse the existing list foods handler with filter
+        # Removed elif for 'search' command
         elif editor_command_line.startswith('add ') or editor_command_line.startswith('a '):
-            add_args = editor_command_line.split(maxsplit=2)
-            if len(add_args) != 3:
-                console.print("[yellow]Usage:[/yellow] add <food_name> <quantity>")
+            add_args = editor_command_line.split(maxsplit=2) # Split into food_name, pieces
+            if len(add_args) != 3: # Expecting 2 arguments after 'add' or 'a'
+                console.print("[yellow]Usage:[/yellow] add <food_name> <pieces>") # Updated usage
                 continue
             food_name = add_args[1].strip().lower()
-            quantity_str = add_args[2].strip()
+            pieces_str = add_args[2].strip()
 
             if food_name not in app_data["foods"]:
                  console.print(f"[red]Error:[/red] Food item '[cyan]{food_name}[/cyan]' not found in your local food database.")
                  continue
 
             try:
-                quantity = int(quantity_str)
-                if quantity <= 0:
-                    console.print("[red]Error:[/red] Quantity must be a positive integer.")
+                quantity_pieces = int(pieces_str)
+                if quantity_pieces <= 0:
+                    console.print("[red]Error:[/red] Number of pieces must be a positive integer.")
                     continue
-                # Check if the food is already in the meal and update quantity
-                found = False
-                for item in current_meal_contents:
-                     if item["food"] == food_name:
-                          item["quantity"] += quantity
-                          found = True
-                          console.print(f"[green]Updated quantity for food:[/green] [cyan]{food_name}[/cyan] to [magenta]{item['quantity']}[/magenta].")
-                          break
-                if not found:
-                    current_meal_contents.append({"food": food_name, "quantity": quantity})
-                    console.print(f"[green]Added food:[/green] [cyan]{food_name}[/cyan] with quantity [magenta]{quantity}[/magenta] to the meal.")
-
             except ValueError:
-                console.print("[red]Error:[/red] Invalid quantity. Quantity must be an integer.")
+                console.print("[red]Error:[/red] Invalid number of pieces. Please provide an integer.")
+                continue
+
+            # Check if the food is already in the meal and update quantity
+            found = False
+            for item in current_meal_contents:
+                 if item["food"] == food_name:
+                      item["quantity"] += quantity_pieces # Add pieces
+                      found = True
+                      console.print(f"[green]Updated quantity for food:[/green] [cyan]{food_name}[/cyan] to [magenta]{item['quantity']}[/magenta] pieces.")
+                      break
+            if not found:
+                current_meal_contents.append({"food": food_name, "quantity": quantity_pieces}) # Store pieces
+                console.print(f"[green]Added food:[/green] [cyan]{food_name}[/cyan] with [magenta]{quantity_pieces}[/magenta] pieces to the meal.")
+
         elif editor_command_line.startswith('delete ') or editor_command_line.startswith('d '):
              delete_args = editor_command_line.split(maxsplit=1)
              if len(delete_args) != 2:
@@ -641,7 +641,8 @@ def handle_list_meals(app_data):
     # Sort meals by name for consistent listing
     for meal_name in sorted(meals.keys()):
         contents = meals[meal_name]
-        content_str = ", ".join([f"{item['food']} ({item['quantity']}g)" for item in contents]) # Added 'g' for grams
+        # Display quantity as pieces in the list meals output
+        content_str = ", ".join([f"{item['food']} ({item['quantity']} pcs)" for item in contents])
         total_nutrition = calculate_meal_nutrition(contents, app_data["foods"])
         table.add_row(
             meal_name,
@@ -685,7 +686,9 @@ def handle_edit_meal(app_data, args):
         return
 
     # Start the meal editor with the existing meal contents
-    run_meal_editor(app_data, meal_name, app_data["meals"][meal_name])
+    # Create a deep copy to avoid modifying the original data in app_data directly
+    import copy
+    run_meal_editor(app_data, meal_name, copy.deepcopy(app_data["meals"][meal_name]))
 
 
 # --- Main Application Loop ---
