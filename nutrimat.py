@@ -654,12 +654,11 @@ def handle_list_meals(app_data):
     table = Table(title="Meal Definitions")
     table.add_column("Meal Name", style="cyan", no_wrap=True)
     # Set a max width for the Contents column and enable overflow ellipsis, also set no_wrap=True to make this work
-    table.add_column("Contents", style="magenta", width=40, overflow="ellipsis", no_wrap=True)
-    table.add_column("Calories", style="yellow")
-    table.add_column("Fat (g)", style="green")
-    table.add_column("Carbs (g)", style="blue")
-    table.add_column("Protein (g)", style="red")
-
+    table.add_column("Contents", style="red", width=40, overflow="ellipsis", no_wrap=True)
+    table.add_column("Calories", style="magenta")
+    table.add_column("Fat (g)", style="yellow")
+    table.add_column("Carbs (g)", style="green")
+    table.add_column("Protein (g)", style="blue")
 
     # Sort meals by name for consistent listing
     for meal_name in sorted(meals.keys()):
