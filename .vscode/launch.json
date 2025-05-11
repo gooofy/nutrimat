@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "nutrition_tracker.py",
+            "name": "nutrimat",
             "type": "debugpy",
             "request": "launch",
             "python": "${workspaceFolder}/.venv/bin/python3",
-            "program": "nutrition_tracker.py",
+            "program": "nutrimat.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "args": []
