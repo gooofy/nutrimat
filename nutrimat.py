@@ -81,18 +81,25 @@ def handle_help():
     console.print("\n[bold]Available Commands:[/bold]")
     console.print("  [green]help[/green] ([cyan]h[/cyan]) - Show this help message")
     console.print("  [green]exit[/green] ([cyan]q[/cyan]) - Exit the application")
+
+    console.print("\n[bold]Food Management:[/bold]") # Added newline and header
     console.print("  [green]add food <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]af[/cyan]) - Add a new food item")
-    console.print("  [green]list foods [pattern][/green] ([cyan]lf [pattern][/cyan]) - List all food items (optionally filter by glob pattern)")
+    console.print("  [green]list foods \\[pattern][/green] ([cyan]lf [pattern][/cyan]) - List all food items (optionally filter by glob pattern)")
     console.print("  [green]delete food <name>[/green] ([cyan]df <name>[/cyan]) - Delete a food item")
     console.print("  [green]search food <query>[/green] ([cyan]sf <query>[/cyan]) - Search for food items in external databases (currently Open Food Facts) and enter interactive pager mode.")
+
+    console.print("\n[bold]Meal Management:[/bold]") # Added newline and header
     console.print("  [green]add meal <name>[/green] ([cyan]am <name>[/cyan]) - Create a new meal definition and enter interactive editor.")
     console.print("  [green]list meals[/green] ([cyan]lm[/cyan]) - List all meal definitions")
     console.print("  [green]delete meal <name>[/green] ([cyan]dm <name>[/cyan]) - Delete a meal definition")
     console.print("  [green]edit meal <name>[/green] ([cyan]em <name>[/cyan]) - Edit an existing meal definition in interactive editor.")
+
+    console.print("\n[bold]Activity Management:[/bold]") # Added newline and header
     console.print("  [green]add activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]aa[/cyan]) - Add a new activity item (values represent calories/macros burned)")
-    console.print("  [green]list activities [pattern][/green] ([cyan]la [pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
+    console.print("  [green]list activities \\[pattern][/green] ([cyan]la [pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
     console.print("  [green]delete activity <name>[/green] ([cyan]da <name>[/cyan]) - Delete an activity item")
     console.print("  [green]edit activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]ea[/cyan]) - Edit an existing activity item")
+
     console.print("\n[italic]More commands coming soon![/italic]")
     # Removed pager commands from main help as they are shown in the pager itself
 
