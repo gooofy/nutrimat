@@ -69,6 +69,10 @@ COMMAND_ALIASES = {
     "lm": "list meals", # Alias for list meals
     "dm": "delete meal", # Alias for delete meal
     "em": "edit meal", # Alias for edit meal
+    "aa": "add activity", # Alias for add activity
+    "la": "list activities", # Alias for list activities
+    "da": "delete activity", # Alias for delete activity
+    "ea": "edit activity", # Alias for edit activity
     # Add aliases for other commands as we implement them
 }
 
@@ -85,6 +89,10 @@ def handle_help():
     console.print("  [green]list meals[/green] ([cyan]lm[/cyan]) - List all meal definitions")
     console.print("  [green]delete meal <name>[/green] ([cyan]dm <name>[/cyan]) - Delete a meal definition")
     console.print("  [green]edit meal <name>[/green] ([cyan]em <name>[/cyan]) - Edit an existing meal definition in interactive editor.")
+    console.print("  [green]add activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]aa[/cyan]) - Add a new activity item (values represent calories/macros burned)")
+    console.print("  [green]list activities [pattern][/green] ([cyan]la [pattern][/cyan]) - List all activity items (optionally filter by glob pattern)")
+    console.print("  [green]delete activity <name>[/green] ([cyan]da <name>[/cyan]) - Delete an activity item")
+    console.print("  [green]edit activity <name> <calories> <fat> <carbs> <protein>[/green] ([cyan]ea[/cyan]) - Edit an existing activity item")
     console.print("\n[italic]More commands coming soon![/italic]")
     # Removed pager commands from main help as they are shown in the pager itself
 
@@ -688,6 +696,134 @@ def handle_edit_meal(app_data, args):
     import copy
     run_meal_editor(app_data, meal_name, copy.deepcopy(app_data["meals"][meal_name]))
 
+# --- Activity Management Handlers ---
+
+def handle_add_activity(app_data, args):
+    """Adds a new activity item to the activity database."""
+    parts = args.split()
+    if len(parts) != 5:
+        console.print("[yellow]Usage:[/yellow] add activity <name> <calories> <fat> <carbs> <protein>")
+        console.print("[yellow]Alias Usage:[/yellow] aa <name> <calories> <fat> <carbs> <protein>")
+        return
+
+    name = parts[0].lower() # Store activity names in lowercase for case-insensitive lookup
+    try:
+        calories = float(parts[1])
+        fat = float(parts[2])
+        carbs = float(parts[3])
+        protein = float(parts[4])
+    except ValueError:
+        console.print("[red]Error:[/red] Calories, fat, carbs, and protein must be numbers.")
+        return
+
+    if name in app_data["activities"]:
+        console.print(f"[yellow]Warning:[/yellow] Activity '[cyan]{name}[/cyan]' already exists. Use 'delete activity' first if you want to replace it.")
+        return
+
+    app_data["activities"][name] = {
+        "calories": calories,
+        "fat": fat,
+        "carbs": carbs,
+        "protein": protein,
+    }
+    save_data(ACTIVITIES_FILE, app_data["activities"])
+    console.print(f"[green]Added activity:[/green] [cyan]{name}[/cyan]")
+
+
+def handle_list_activities(app_data, args=""):
+    """Lists all activity items in the activity database, optionally filtered by a glob pattern."""
+    activities = app_data["activities"]
+    if not activities:
+        console.print("[yellow]No activity items found.[/yellow]")
+        return
+
+    filter_pattern = args.strip().lower() # Get the filter pattern, lowercase it
+    filtered_activities = {}
+
+    if filter_pattern:
+        # Filter activities based on the glob pattern
+        # We need to match the activity names (keys) against the pattern
+        matching_names = glob.fnmatch.filter(activities.keys(), filter_pattern)
+        for name in matching_names:
+            filtered_activities[name] = activities[name]
+    else:
+        # If no pattern, list all activities
+        filtered_activities = activities
+
+    if not filtered_activities:
+        console.print(f"[yellow]No activity items found matching pattern:[/yellow] [cyan]{filter_pattern}[/cyan]")
+        return
+
+
+    table = Table(title="Activity Database (Calories/Macros Burned)")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Calories", style="magenta")
+    table.add_column("Fat (g)", style="yellow")
+    table.add_column("Carbs (g)", style="green")
+    table.add_column("Protein (g)", style="blue")
+
+    # Sort filtered activities by name for consistent listing
+    for name in sorted(filtered_activities.keys()):
+        activity = filtered_activities[name]
+        table.add_row(
+            name,
+            f"{activity.get('calories', 0):.2f}", # Format to 2 decimal places
+            f"{activity.get('fat', 0):.2f}",
+            f"{activity.get('carbs', 0):.2f}",
+            f"{activity.get('protein', 0):.2f}",
+        )
+
+    console.print(table)
+
+
+def handle_delete_activity(app_data, args):
+    """Deletes an activity item from the activity database."""
+    name = args.strip().lower()
+    if not name:
+        console.print("[yellow]Usage:[/yellow] delete activity <name>")
+        console.print("[yellow]Alias Usage:[/yellow] da <name>")
+        return
+
+    if name not in app_data["activities"]:
+        console.print(f"[yellow]Warning:[/yellow] Activity '[cyan]{name}[/cyan]' not found.")
+        return
+
+    del app_data["activities"][name]
+    save_data(ACTIVITIES_FILE, app_data["activities"])
+    console.print(f"[green]Deleted activity:[/green] [cyan]{name}[/cyan]")
+
+
+def handle_edit_activity(app_data, args):
+    """Edits an existing activity item in the activity database."""
+    parts = args.split()
+    if len(parts) != 5:
+        console.print("[yellow]Usage:[/yellow] edit activity <name> <calories> <fat> <carbs> <protein>")
+        console.print("[yellow]Alias Usage:[/yellow] ea <name> <calories> <fat> <carbs> <protein>")
+        return
+
+    name = parts[0].lower() # Activity name to edit
+    try:
+        calories = float(parts[1])
+        fat = float(parts[2])
+        carbs = float(parts[3])
+        protein = float(parts[4])
+    except ValueError:
+        console.print("[red]Error:[/red] Calories, fat, carbs, and protein must be numbers.")
+        return
+
+    if name not in app_data["activities"]:
+        console.print(f"[red]Error:[/red] Activity '[cyan]{name}[/cyan]' not found.")
+        return
+
+    app_data["activities"][name] = {
+        "calories": calories,
+        "fat": fat,
+        "carbs": carbs,
+        "protein": protein,
+    }
+    save_data(ACTIVITIES_FILE, app_data["activities"])
+    console.print(f"[green]Edited activity:[/green] [cyan]{name}[/cyan]")
+
 
 # --- Main Application Loop ---
 
@@ -699,14 +835,14 @@ def run_tracker():
     # Load initial data (will be empty if files don't exist)
     foods_data = load_data(FOODS_FILE)
     meals_data = load_data(MEALS_FILE)
-    activities_data = load_data(ACTIVITIES_FILE)
+    activities_data = load_data(ACTIVITIES_FILE) # Load activities data
     diary_data = load_data(DIARY_FILE)
 
     # This is where we will store the data in memory while the app runs
     app_data = {
         "foods": foods_data,
         "meals": meals_data,
-        "activities": activities_data,
+        "activities": activities_data, # Include activities in app_data
         "diary": diary_data,
         "last_search_results": [] # This is no longer strictly necessary for the pager, but keeping for now
     }
@@ -747,6 +883,8 @@ def run_tracker():
                     handle_add_food(app_data, args[len("food"):].strip())
                 elif args.lower().startswith("meal"):
                      handle_add_meal(app_data, args[len("meal"):].strip())
+                elif args.lower().startswith("activity"):
+                     handle_add_activity(app_data, args[len("activity"):].strip())
                 else:
                     console.print(f"[yellow]Unknown 'add' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             elif command == "list":
@@ -755,6 +893,8 @@ def run_tracker():
                     handle_list_foods(app_data, args[len("foods"):].strip())
                 elif args.lower() == "meals":
                      handle_list_meals(app_data)
+                elif args.lower().startswith("activities"): # Use startswith to allow for arguments
+                     handle_list_activities(app_data, args[len("activities"):].strip())
                 else:
                      console.print(f"[yellow]Unknown 'list' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             elif command == "delete":
@@ -763,6 +903,8 @@ def run_tracker():
                     handle_delete_food(app_data, args[len("food"):].strip())
                 elif args.lower().startswith("meal"):
                      handle_delete_meal(app_data, args[len("meal"):].strip())
+                elif args.lower().startswith("activity"):
+                     handle_delete_activity(app_data, args[len("activity"):].strip())
                 else:
                     console.print(f"[yellow]Unknown 'delete' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             elif command == "search":
@@ -777,6 +919,8 @@ def run_tracker():
             elif command == "edit":
                  if args.lower().startswith("meal"):
                       handle_edit_meal(app_data, args[len("meal"):].strip())
+                 elif args.lower().startswith("activity"):
+                      handle_edit_activity(app_data, args[len("activity"):].strip())
                  else:
                       console.print(f"[yellow]Unknown 'edit' subcommand:[/yellow] {args.split()[0] if args else ''}. Type '[green]help[/green]' for a list of commands.")
             else:
